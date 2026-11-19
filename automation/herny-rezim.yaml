@@ -1,0 +1,111 @@
+blueprint:
+  name: Herný režim – farebné svetlá, keď spustíte hru
+  description: >-
+    Keď na PlayStation alebo Xbox spustíte vybranú hru, prepne svetlá do
+    herných farieb (predvolene ružová a tyrkysová ako vo Vice City). Keď hru
+    vypnete, vráti svetlá presne do stavu, v akom boli predtým.
+
+
+    Potrebujete senzor „Práve sa prehráva“ z integrácie PlayStation Network
+    alebo podobný senzor z integrácie Xbox. Hra sa hľadá podľa časti názvu,
+    takže stačí napríklad „Grand Theft Auto“.
+
+
+    Ak vyberiete viac svetiel, striedajú sa prvá a druhá farba.
+
+
+    Návod: https://byvai.sk/gta-6-home-assistant/
+  domain: automation
+  author: ByvAI (byvai.sk)
+  source_url: https://github.com/bvstudio1/byvai-blueprints/blob/main/automation/herny-rezim.yaml
+  homeassistant:
+    min_version: 2024.10.0
+  input:
+    now_playing:
+      name: Senzor „Práve sa prehráva“
+      description: Senzor z integrácie PlayStation Network alebo Xbox, ktorý ukazuje názov hry.
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+    game:
+      name: Názov hry (stačí časť)
+      description: Na veľkosti písmen nezáleží.
+      default: Grand Theft Auto
+      selector:
+        text:
+    lights:
+      name: Svetlá
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain: light
+    color_1:
+      name: Prvá farba
+      default: [255, 40, 160]
+      selector:
+        color_rgb:
+    color_2:
+      name: Druhá farba
+      default: [0, 210, 200]
+      selector:
+        color_rgb:
+    brightness:
+      name: Jas
+      default: 60
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+
+mode: restart
+
+variables:
+  game: !input game
+  lights: !input lights
+  color_1: !input color_1
+  color_2: !input color_2
+  brightness: !input brightness
+  scene_id: "herny_rezim_{{ this.attributes.id | default('pred') }}"
+
+triggers:
+  - trigger: state
+    entity_id: !input now_playing
+
+conditions:
+  - condition: template
+    value_template: >-
+      {% set g = game | lower %}
+      {% set novy = (trigger.to_state.state if trigger.to_state else '') | lower %}
+      {% set stary = (trigger.from_state.state if trigger.from_state else '') | lower %}
+      {{ (g in novy) != (g in stary) }}
+
+actions:
+  - choose:
+      # Hra sa spustila
+      - conditions:
+          - condition: template
+            value_template: "{{ (game | lower) in (trigger.to_state.state | lower) }}"
+        sequence:
+          - action: scene.create
+            data:
+              scene_id: "{{ scene_id }}"
+              snapshot_entities: "{{ lights }}"
+          - repeat:
+              for_each: "{{ lights }}"
+              sequence:
+                - action: light.turn_on
+                  target:
+                    entity_id: "{{ repeat.item }}"
+                  data:
+                    rgb_color: "{{ color_1 if repeat.index is odd else color_2 }}"
+                    brightness_pct: "{{ brightness }}"
+    # Hra skončila – vrátiť svetlá do pôvodného stavu
+    default:
+      - action: scene.turn_on
+        continue_on_error: true
+        target:
+          entity_id: "scene.{{ scene_id }}"
