@@ -1,0 +1,42 @@
+blueprint:
+  name: Zhasni zabudnuté svetlo
+  description: >-
+    Vypne svetlo, ktoré svieti dlhšie než nastavený čas. Hodí sa na chodbu,
+    špajzu, pivnicu alebo detskú izbu.
+
+
+    Návod, čo sú blueprinty a ako fungujú: https://byvai.sk/home-assistant-blueprint/
+  domain: automation
+  author: ByvAI (byvai.sk)
+  source_url: https://github.com/bvstudio1/byvai-blueprints/blob/main/automation/zabudnute-svetlo.yaml
+  homeassistant:
+    min_version: 2024.10.0
+  input:
+    svetlo:
+      name: Svetlo
+      selector:
+        entity:
+          filter:
+            - domain: light
+    minuty:
+      name: Po koľkých minútach
+      default: 30
+      selector:
+        number:
+          min: 5
+          max: 240
+          unit_of_measurement: min
+
+triggers:
+  - trigger: state
+    entity_id: !input svetlo
+    to: "on"
+    for:
+      minutes: !input minuty
+
+actions:
+  - action: light.turn_off
+    target:
+      entity_id: !input svetlo
+
+mode: single

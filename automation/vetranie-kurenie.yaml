@@ -1,0 +1,75 @@
+blueprint:
+  name: Pri vetraní sa nekúri – vypnutie kúrenia pri otvorenom okne
+  description: >-
+    Keď otvoríte okno, po krátkom čase vypne kúrenie (termostatickú hlavicu
+    alebo termostat). Keď sú všetky vybrané okná znova zatvorené, vráti
+    kúrenie do režimu, v ktorom bolo predtým.
+
+
+    Ak bolo kúrenie už vypnuté, automatizácia nič nerobí.
+
+
+    Návod: https://byvai.sk/inteligentna-domacnost-v-panelaku/
+  domain: automation
+  author: ByvAI (byvai.sk)
+  source_url: https://github.com/bvstudio1/byvai-blueprints/blob/main/automation/vetranie-kurenie.yaml
+  homeassistant:
+    min_version: 2024.10.0
+  input:
+    windows:
+      name: Senzory okien
+      description: Jedno alebo viac okien v miestnosti (stav zapnuté = otvorené).
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain: binary_sensor
+    climate_entity:
+      name: Kúrenie
+      description: Termostatická hlavica alebo termostat v tej istej miestnosti.
+      selector:
+        entity:
+          filter:
+            - domain: climate
+    open_delay:
+      name: Vypnúť po
+      description: Koľko minút musí byť okno otvorené, kým sa kúrenie vypne. Krátke otvorenie tak nič nezmení.
+      default: 1
+      selector:
+        number:
+          min: 0
+          max: 30
+          step: 1
+          unit_of_measurement: min
+
+mode: single
+
+variables:
+  windows: !input windows
+  climate_entity: !input climate_entity
+
+triggers:
+  - trigger: state
+    entity_id: !input windows
+    to: "on"
+    for:
+      minutes: !input open_delay
+
+conditions:
+  - condition: template
+    value_template: "{{ states(climate_entity) not in ['off', 'unavailable', 'unknown'] }}"
+
+actions:
+  - variables:
+      povodny_rezim: "{{ states(climate_entity) }}"
+  - action: climate.set_hvac_mode
+    target:
+      entity_id: !input climate_entity
+    data:
+      hvac_mode: "off"
+  - wait_template: "{{ windows | select('is_state', 'on') | list | count == 0 }}"
+  - action: climate.set_hvac_mode
+    target:
+      entity_id: !input climate_entity
+    data:
+      hvac_mode: "{{ povodny_rezim }}"

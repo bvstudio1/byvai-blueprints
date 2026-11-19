@@ -1,0 +1,140 @@
+blueprint:
+  name: Svetlo podľa pohybu alebo prítomnosti (s nočným režimom)
+  description: >-
+    Zapne svetlo, keď niektorý zo senzorov zachytí pohyb alebo prítomnosť,
+    a zhasne, až keď sú všetky senzory bez detekcie. V noci svieti len na
+    nižší jas, aby vás neoslepilo.
+
+
+    Hodí sa na WC, kúpeľňu, chodbu alebo špajzu. Môžete vybrať jeden obyčajný
+    pohybový senzor, alebo kombináciu PIR a radaru (napríklad Aqara FP300):
+    PIR svetlo rýchlo zapne a radar ho udrží, aj keď sa nehýbete.
+
+
+    Návod: https://byvai.sk/aqara-fp300-home-assistant/
+  domain: automation
+  author: ByvAI (byvai.sk)
+  source_url: https://github.com/bvstudio1/byvai-blueprints/blob/main/automation/svetlo-pohyb-pritomnost.yaml
+  homeassistant:
+    min_version: 2024.10.0
+  input:
+    sensors:
+      name: Senzory pohybu alebo prítomnosti
+      description: >-
+        Jeden alebo viac senzorov. Svetlo sa zapne, keď ktorýkoľvek z nich
+        hlási detekciu, a zhasne, až keď sú všetky bez detekcie.
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain: binary_sensor
+              device_class:
+                - motion
+                - occupancy
+                - presence
+    lights:
+      name: Svetlá
+      selector:
+        entity:
+          multiple: true
+          filter:
+            - domain: light
+    off_delay:
+      name: Zhasnúť po
+      description: >-
+        Koľko minút po poslednej detekcii zhasnúť. Pri senzore prítomnosti
+        (radar) stačí 0–1 minúta, pri obyčajnom pohybovom senzore radšej 2–5 minút.
+      default: 1
+      selector:
+        number:
+          min: 0
+          max: 30
+          step: 1
+          unit_of_measurement: min
+    only_dark:
+      name: Zapínať len po zotmení
+      description: Cez deň svetlo nezapne (podľa polohy slnka).
+      default: false
+      selector:
+        boolean:
+    day_brightness:
+      name: Jas cez deň
+      default: 100
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+    night_brightness:
+      name: Jas v noci
+      default: 10
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          unit_of_measurement: "%"
+    night_from:
+      name: Nočný režim od
+      default: "22:00:00"
+      selector:
+        time:
+    night_to:
+      name: Nočný režim do
+      default: "06:00:00"
+      selector:
+        time:
+
+mode: restart
+
+variables:
+  sensors: !input sensors
+  only_dark: !input only_dark
+
+triggers:
+  - trigger: state
+    entity_id: !input sensors
+    to: "on"
+    id: detekcia
+  - trigger: state
+    entity_id: !input sensors
+    to: "off"
+    for:
+      minutes: !input off_delay
+    id: prazdno
+
+actions:
+  - choose:
+      - conditions:
+          - condition: trigger
+            id: detekcia
+          - condition: template
+            value_template: "{{ not only_dark or is_state('sun.sun', 'below_horizon') }}"
+        sequence:
+          - choose:
+              - conditions:
+                  - condition: time
+                    after: !input night_from
+                    before: !input night_to
+                sequence:
+                  - action: light.turn_on
+                    target:
+                      entity_id: !input lights
+                    data:
+                      brightness_pct: !input night_brightness
+            default:
+              - action: light.turn_on
+                target:
+                  entity_id: !input lights
+                data:
+                  brightness_pct: !input day_brightness
+      - conditions:
+          - condition: trigger
+            id: prazdno
+          - condition: template
+            value_template: "{{ sensors | select('is_state', 'on') | list | count == 0 }}"
+        sequence:
+          - action: light.turn_off
+            target:
+              entity_id: !input lights
