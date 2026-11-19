@@ -36,6 +36,12 @@ Vypne svetlo, ktoré svieti dlhšie než nastavený čas.
 
 [![Importovať do Home Assistant](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fbvstudio1%2Fbyvai-blueprints%2Fblob%2Fmain%2Fautomation%2Fzabudnute-svetlo.yaml)
 
+### Herný režim – farebné svetlá, keď spustíte hru
+
+Keď na PlayStation alebo Xbox spustíte vybranú hru (napríklad GTA 6), prepne svetlá do herných farieb. Po vypnutí hry ich vráti do pôvodného stavu.
+
+[![Importovať do Home Assistant](https://my.home-assistant.io/badges/blueprint_import.svg)](https://my.home-assistant.io/redirect/blueprint_import/?blueprint_url=https%3A%2F%2Fgithub.com%2Fbvstudio1%2Fbyvai-blueprints%2Fblob%2Fmain%2Fautomation%2Fherny-rezim.yaml)
+
 ## Ako na to
 
 1. Kliknite na tlačidlo **Importovať do Home Assistant** pri blueprinte.
@@ -51,3 +57,4 @@ Potrebujete Home Assistant 2024.10 alebo novší. Pri blueprintoch s upozornení
 - [Inteligentná domácnosť v paneláku](https://byvai.sk/inteligentna-domacnost-v-panelaku/)
 - [Smart domácnosť v prenájme](https://byvai.sk/smart-domacnost-v-prenajme/)
 - [Home Assistant blueprint: čo to je a ktoré sa oplatia](https://byvai.sk/home-assistant-blueprint/)
+- [GTA 6 a Home Assistant: herný dashboard a herný režim](https://byvai.sk/gta-6-home-assistant/)
