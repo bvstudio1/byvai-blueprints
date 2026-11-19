@@ -1,0 +1,91 @@
+blueprint:
+  name: Spotrebič dokončil program – upozornenie do mobilu
+  description: >-
+    Pošle notifikáciu do telefónu, keď práčka, sušička alebo umývačka riadu
+    dokončí program. Stačí smart zásuvka s meraním spotreby.
+
+
+    Automatizácia čaká, kým spotreba klesne pod zadanú hranicu a zostane tam
+    niekoľko minút. Krátke poklesy počas prania tak upozornenie nespustia.
+
+
+    Návod a vysvetlenie: https://byvai.sk/home-assistant-notifikacie/
+  domain: automation
+  author: ByvAI (byvai.sk)
+  source_url: https://github.com/bvstudio1/byvai-blueprints/blob/main/automation/spotrebic-skoncil.yaml
+  homeassistant:
+    min_version: 2024.10.0
+  input:
+    power_sensor:
+      name: Spotreba zariadenia
+      description: Senzor spotreby vo wattoch zo smart zásuvky, do ktorej je zariadenie zapojené.
+      selector:
+        entity:
+          filter:
+            - domain: sensor
+              device_class: power
+    threshold:
+      name: Hranica spotreby
+      description: >-
+        Pod touto hodnotou sa zariadenie považuje za vypnuté. Väčšine práčok
+        stačí 5–10 W. Ak vám upozornenie chodí uprostred prania, hodnotu znížte.
+      default: 8
+      selector:
+        number:
+          min: 1
+          max: 100
+          step: 1
+          unit_of_measurement: W
+          mode: box
+    delay:
+      name: Ako dlho musí byť spotreba nízko
+      description: >-
+        Koľko minút musí spotreba ostať pod hranicou, kým príde upozornenie.
+        Niektoré práčky počas namáčania na chvíľu stíchnu, preto sa oplatí 3–5 minút.
+      default: 3
+      selector:
+        number:
+          min: 1
+          max: 30
+          step: 1
+          unit_of_measurement: min
+    notify_device:
+      name: Telefón
+      description: Telefón s aplikáciou Home Assistant, kam príde upozornenie.
+      selector:
+        device:
+          filter:
+            - integration: mobile_app
+    title:
+      name: Nadpis upozornenia
+      default: Práčka
+      selector:
+        text:
+    message:
+      name: Text upozornenia
+      default: Práčka skončila, môžete vybrať prádlo.
+      selector:
+        text:
+
+mode: single
+
+triggers:
+  - trigger: numeric_state
+    entity_id: !input power_sensor
+    below: !input threshold
+    for:
+      minutes: !input delay
+
+conditions:
+  # Neposielať upozornenie, keď sa zásuvka len znova pripojí (z unavailable na 0 W).
+  - condition: template
+    value_template: >-
+      {{ trigger.from_state is not none
+         and trigger.from_state.state not in ['unavailable', 'unknown'] }}
+
+actions:
+  - domain: mobile_app
+    type: notify
+    device_id: !input notify_device
+    title: !input title
+    message: !input message

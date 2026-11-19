@@ -1,0 +1,116 @@
+blueprint:
+  name: Otvorené okno večer – opakované upozornenie do mobilu
+  description: >-
+    Večer a v noci vám pripomenie, že je otvorené okno, a pripomína to
+    opakovane, kým ho niekto nezavrie. Hodí sa napríklad do detskej izby.
+
+
+    Upozornenie príde, keď je okno otvorené dlhšie ako zadaný čas, alebo keď
+    nastane začiatok večera a okno je stále otvorené.
+
+
+    Návod a vysvetlenie: https://byvai.sk/home-assistant-notifikacie/
+  domain: automation
+  author: ByvAI (byvai.sk)
+  source_url: https://github.com/bvstudio1/byvai-blueprints/blob/main/automation/okno-otvorene.yaml
+  homeassistant:
+    min_version: 2024.10.0
+  input:
+    window_sensor:
+      name: Senzor okna
+      description: Dverový alebo okenný senzor (stav zapnuté = otvorené).
+      selector:
+        entity:
+          filter:
+            - domain: binary_sensor
+    open_delay:
+      name: Po akom čase upozorniť
+      description: Koľko minút musí byť okno otvorené, kým príde prvé upozornenie.
+      default: 2
+      selector:
+        number:
+          min: 0
+          max: 60
+          step: 1
+          unit_of_measurement: min
+    time_from:
+      name: Upozorňovať od
+      default: "18:00:00"
+      selector:
+        time:
+    time_to:
+      name: Upozorňovať do
+      description: Môže byť aj ráno nasledujúceho dňa, napríklad 07:00.
+      default: "07:00:00"
+      selector:
+        time:
+    repeat_minutes:
+      name: Opakovať každých
+      description: Ako často pripomínať, kým je okno otvorené.
+      default: 30
+      selector:
+        number:
+          min: 5
+          max: 120
+          step: 5
+          unit_of_measurement: min
+    notify_device:
+      name: Telefón
+      description: Telefón s aplikáciou Home Assistant, kam príde upozornenie.
+      selector:
+        device:
+          filter:
+            - integration: mobile_app
+    title:
+      name: Nadpis upozornenia
+      default: Otvorené okno
+      selector:
+        text:
+    message:
+      name: Text upozornenia
+      default: Okno je stále otvorené.
+      selector:
+        text:
+
+mode: restart
+
+variables:
+  window: !input window_sensor
+  repeat_minutes: !input repeat_minutes
+
+triggers:
+  - trigger: state
+    entity_id: !input window_sensor
+    to: "on"
+    for:
+      minutes: !input open_delay
+  - trigger: time
+    at: !input time_from
+
+conditions:
+  - condition: state
+    entity_id: !input window_sensor
+    state: "on"
+  - condition: time
+    after: !input time_from
+    before: !input time_to
+
+actions:
+  - repeat:
+      while:
+        - condition: state
+          entity_id: !input window_sensor
+          state: "on"
+        - condition: time
+          after: !input time_from
+          before: !input time_to
+      sequence:
+        - domain: mobile_app
+          type: notify
+          device_id: !input notify_device
+          title: !input title
+          message: !input message
+        - wait_template: "{{ is_state(window, 'off') }}"
+          timeout:
+            minutes: "{{ repeat_minutes | int }}"
+          continue_on_timeout: true
